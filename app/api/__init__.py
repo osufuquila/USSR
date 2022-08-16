@@ -25,6 +25,13 @@ from app.usecases.user import authenticate_user
 router = APIRouter(default_response_class=Response)
 
 router.add_api_route("/web/osu-osz2-getscores.php", leaderboards.get_leaderboard)
+
+router.add_api_route(
+    "/web/osu-submit-modular.php",
+    score_sub.submit_score,
+    methods=["POST"],
+)
+
 router.add_api_route(
     "/web/osu-submit-modular-selector.php",
     score_sub.submit_score,

@@ -34,6 +34,9 @@ async def handle_privilege_change(payload: str) -> None:
 class UsernameChange(TypedDict):
     userID: str
 
+class RemoveFromLeaderboard(TypedDict):
+    userID: int
+    Relax: int
 
 @register_pubsub("peppy:change_username")
 async def handle_username_change(payload: str) -> None:
@@ -90,6 +93,32 @@ async def handle_clan_change(payload: str) -> None:
 
     logger.info(f"Updated clan for user ID {user_id}")
 
+
+@register_pubsub("ussr:wipe_user")
+async def remove_from_leaderboards(payload: str) -> None:
+    data: RemoveFromLeaderboard = orjson.loads(payload)
+    user_id = int(data["userID"])
+    Relax = int(data["Relax"])
+
+    base_query = ["SELECT DISTINCT(beatmap_md5) FROM :table WHERE completed > 1 AND userid = :user_id"]
+    args = {"user_id": user_id}
+
+    if Relax > 0:
+        args["table"] = "scores_relax"
+    else:
+        args["table"] = "scores"
+
+    user_scores = await app.state.services.database.fetch_all(
+        " ".join(base_query),
+        args
+    )
+
+    app.usecases.stats.remove_user(user_id)
+
+    for map in user_scores:
+        app.usecases.beatmap.clear_leaderboard(map["beatmap_md5"])
+
+    logger.info(f"Removed user ID {user_id} from cached leaderboards!")
 
 class RedisMessage(TypedDict):
     channel: bytes

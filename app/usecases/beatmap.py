@@ -15,6 +15,16 @@ MD5_CACHE: dict[str, Beatmap] = {}
 ID_CACHE: dict[int, Beatmap] = {}
 SET_CACHE: dict[int, list[Beatmap]] = {}
 
+def clear_leaderboard(md5: str) -> None:
+    beatmap = md5_from_cache(md5)
+        
+    if not beatmap:
+        return
+
+    beatmap.leaderboards = {} # reset leaderboards
+
+    MD5_CACHE[beatmap.md5] = beatmap
+    ID_CACHE[beatmap.id] = beatmap
 
 async def update_beatmap(beatmap: Beatmap) -> Optional[Beatmap]:
     if not beatmap.deserves_update:

@@ -95,20 +95,16 @@ def chart_entry(name: str, before: Optional[T], after: T) -> str:
 
 async def submit_score(
     request: Request,
-    token: Optional[str] = Header(None),
     user_agent: str = Header(...),
     exited_out: bool = Form(..., alias="x"),
     fail_time: int = Form(..., alias="ft"),
     visual_settings_b64: bytes = Form(..., alias="fs"),
-    updated_beatmap_hash: str = Form(..., alias="bmk"),
-    storyboard_md5: Optional[str] = Form(None, alias="sbk"),
     iv_b64: bytes = Form(..., alias="iv"),
     unique_ids: str = Form(..., alias="c1"),
     score_time: int = Form(..., alias="st"),
     password_md5: str = Form(..., alias="pass"),
     osu_version: str = Form(..., alias="osuver"),
     client_hash_b64: bytes = Form(..., alias="s"),
-    fl_cheat_screenshot: Optional[bytes] = File(None, alias="i"),
 ):
     start = time.perf_counter_ns()
 
@@ -131,7 +127,7 @@ async def submit_score(
     beatmap_md5 = score_data[0]
     if not (beatmap := await app.usecases.beatmap.fetch_by_md5(beatmap_md5)):
         return b"error: beatmap"
-
+    
     score = Score.from_submission(score_data[2:], beatmap_md5, user)
     leaderboard = await app.usecases.leaderboards.fetch(beatmap, score.mode)
 
@@ -142,16 +138,6 @@ async def submit_score(
 
     if not score.mods.rankable:
         return b"error: no"
-
-    # This can be unreliable with devserver.
-    # if not token and not config.custom_clients:
-    #    await app.usecases.user.restrict_user(
-    #        user,
-    #        "Tampering with osu!auth.",
-    #        "The client has not sent an anticheat token to the server, meaning "
-    #        "that they either have disabled the anticheat, or are using a custom/older "
-    #        "client. (score submit gate)",
-    #    )
 
     if user_agent != "osu!":
         await app.usecases.user.restrict_user(
@@ -210,19 +196,6 @@ async def submit_score(
     ):
         # duplicate score detected
         return b"error: no"
-
-    if (
-        beatmap.gives_pp
-        and score.pp > score.mode.pp_cap
-        and not await app.usecases.verified.get_verified(user.id)
-    ):
-        await restrict_user(
-            user,
-            f"Surpassing PP cap as unverified!",
-            "The user attempted to submit a score with PP higher than the "
-            f"PP cap. {beatmap.song_name} +{score.mods!r} ({score.pp:.2f}pp)"
-            f" ID: {score.id} (score submit gate)",
-        )
 
     if score.status == ScoreStatus.BEST:
         await app.state.services.database.execute(
